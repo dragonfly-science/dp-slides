@@ -7,6 +7,21 @@ output:
     theme: lumen
 ---
 
+<link rel="stylesheet" type="text/css" href="http://cdn.datatables.net/1.10.5/css/jquery.dataTables.min.css">
+<script src="http://code.jquery.com/jquery-2.1.2.min.js"></script>
+<script src="http://cdn.datatables.net/1.10.5/js/jquery.dataTables.min.js"></script>
+
+<script type="text/javascript">
+         $(document).ready(function() {
+             $("table").DataTable();
+         } );
+</script>
+
+```{r}
+options(DT.options = list(pageLength = 3, autoWidth = TRUE, scrollX = TRUE))
+```
+
+
 # Introduction
 
 This R notebook aims to provide a practical example of Differential Privacy for official statistics with microdata.
@@ -17,6 +32,7 @@ We will import a microdataset and perform some differentially private queries. T
 # Import libraries
 library(tidyverse)
 library(kableExtra)
+library(DT)
 ```
 
 ```{r}
@@ -168,7 +184,7 @@ census <- raw_census %>%
     `Approximated Social Grade` == 3 ~ 'C2',
     `Approximated Social Grade` == 4 ~ 'DE',
     `Approximated Social Grade` == -9 ~ 'No code required (People aged under 16, people resident in communal establishments, and students or schoolchildren living away during term-time)'
-    ),
+    )
   ) %>% 
   select(-`Hours worked per week`, -`Country of Birth`)
 ```
@@ -184,16 +200,75 @@ if (any(census_nas)) {
 ```{r}
 census %>%
   sample_n(30) %>%
-  knitr::kable() %>%
-  kable_styling(font_size = 15) %>%
-  scroll_box(width = "900px")
+  datatable()
+```
+
+# Differentially Private Counts
+
+```{r}
+census %>% 
+  group_by(Region) %>% 
+  count() %>% 
+  ggplot(aes(x = reorder(Region, n), y = n)) +
+  geom_bar(stat = 'identity') +
+  coord_flip() + 
+  xlab('Frequency') +
+  ylab('Region') +
+  theme_minimal()
 ```
 
 ```{r}
+region_counts <- census %>% 
+  group_by(Region) %>% 
+  summarise(count = n())
 
+region_counts
 ```
 
+```{r}
+randomized_response <- function(x, p) {
+  xs <- unique(x)
+  res <- if_else(runif(length(x)) >= p, x, map_chr(x, function(y) sample(xs, 1)))
+  res
+}
+```
+ 
+```{r}
+Regions = unique(census$Region)
+p = 0.5
+noised_region_counts <- census %>%
+  select(Region) %>% 
+  mutate(Region = randomized_response(Region, p)) %>% 
+  group_by(Region) %>% 
+  summarise(noised_count = n()) %>% 
+  left_join(region_counts, by = 'Region') %>% 
+  mutate(est = (noised_count / sum(noised_count) - p / length(Regions)) * sum(noised_count) / (1 - p),
+         err = (count - est) / count)
 
+noised_region_counts %>% 
+  gather(noised_count:count, key = 'noise', value = 'count') %>% 
+  mutate(noise = if_else(noise == "noised_count", "noise", "no noise")) %>% 
+  ggplot(aes(x = reorder(Region, count), y = count, fill = noise)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  coord_flip() +
+  xlab('Frequency') +
+  ylab('Region') +
+  theme_minimal()
+```
+
+```{r}
+census %>% 
+  select(Region) %>% 
+  mutate(response = if_else(runif(nrow(.)) >= 0.5, Region, map_chr(Region, function(x) sample(Regions,  1)))) %>% 
+  group_by(response) %>% 
+  count() %>% 
+  ggplot(aes(x = reorder(response, n), y = n)) +
+  geom_bar(stat = 'identity') +
+  coord_flip() + 
+  xlab('Frequency') +
+  ylab('Region') +
+  theme_minimal()
+```
 
 
 

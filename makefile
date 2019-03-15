@@ -7,7 +7,9 @@ GID ?= $(shell id -g)
 DOCKER_ARGS ?= 
 GIT_TAG ?= $(shell git log --oneline | head -n1 | awk '{print $$1}')
 
-slides: differential-privacy.html
+all: clean notebooks slides
+
+slides: clean differential-privacy.html
 
 NOTEBOOKS := notebooks/dp-practice.Rmd
 notebooks: $(NOTEBOOKS:.Rmd=.html)
@@ -30,7 +32,7 @@ data/rft-teaching-file.zip:
 	wget http://www.ons.gov.uk/ons/rel/census/2011-census/2011-census-teaching-file/rft-teaching-file.zip -P data
 
 listen: 
-	ag -l | entr make slides
+	$(RUN) ag -l | entr make
 
 clean:
 	rm -f notebooks/*.html

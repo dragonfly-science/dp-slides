@@ -3,7 +3,6 @@ FROM rocker/tidyverse
 # Install a missing linux package
 RUN apt update && apt install -y tree pandoc-citeproc silversearcher-ag entr
 
-
 # Install python3
 RUN apt install -y python3-dev python3-pip
 
@@ -19,8 +18,4 @@ RUN Rscript -e "install.packages('reticulate')"
 RUN Rscript -e "install.packages('sdcMicro')"
 RUN Rscript -e "install.packages('brms')"
 RUN Rscript -e "install.packages('prettydoc')"
-
-RUN Rscript -e 'devtools::install_github("tidyverse/tidyverse")'
-RUN Rscript -e 'devtools::install_github("r-lib/rlang")'
-RUN Rscript -e 'devtools::install_github("tidyverse/tibble")'
-RUN Rscript -e 'devtools::install_github("tidyverse/dplyr")'
+RUN Rscript -e "install.packages('DT')"
