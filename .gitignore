@@ -35,7 +35,7 @@ vignettes/*.pdf
 # Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
 rsconnect/
 .Rproj.user
-differential-privacy.Rmd
 dp-slides.Rproj
 differential-privacy.html
 data/**
+notebooks/dp-practice.nb.html

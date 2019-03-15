@@ -9,9 +9,26 @@ GIT_TAG ?= $(shell git log --oneline | head -n1 | awk '{print $$1}')
 
 slides: differential-privacy.html
 
+NOTEBOOKS := notebooks/dp-practice.Rmd
+notebooks: $(NOTEBOOKS:.Rmd=.html)
+
+$(NOTEBOOKS:.Rmd=.html): $(NOTEBOOKS) data/rft-teaching-file.zip data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv
+	$(RUN) Rscript -e 'rmarkdown::render("$<")'
+
 differential-privacy.html: differential-privacy.Rmd
 	$(RUN) Rscript -e 'rmarkdown::render("$<")'
-	
+
+data: data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv
+
+data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv: data/rft-teaching-file
+	unzip $< -d data/rft-teaching-file
+
+data/rft-teaching-file: data/rft-teaching-file.zip
+	mkdir -p $@
+
+data/rft-teaching-file.zip:
+	wget http://www.ons.gov.uk/ons/rel/census/2011-census/2011-census-teaching-file/rft-teaching-file.zip -P data
+
 listen: 
 	ag -l | entr make slides
 
