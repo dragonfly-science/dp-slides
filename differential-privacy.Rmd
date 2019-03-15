@@ -1,0 +1,77 @@
+---
+title: "Intro to Differential Privacy"
+author: "Caleb Moses"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: ioslides_presentation
+logo: images/dragonfly-logo-rgb.png
+css: dragonfly.css
+font-family: 'Helvetica'
+---
+
+<script type="text/javascript" src="http://livejs.com/live.js"></script>
+
+<style>
+pre code, pre, code {
+  white-space: pre !important;
+  overflow-x: scroll !important;
+  word-break: keep-all !important;
+  word-wrap: initial !important;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+library(reticulate)
+```
+
+## Overview
+
+- What is Differential Privacy?
+- Examples of Differentially Private Mechanisms
+
+## Simple scenario
+
+> Alice permits her medical data to be used by third parties for medical research.
+>
+> Her insurance company conducts a study with the medical data, which concludes smoking is bad for health
+>
+> Her insurance company asks customers whether they smoke during the application process, and use this
+information to justify raising Alice's premiums
+
+Has Alice been harmed by allowing her data to be used by third parties
+
+## What is Differential Privacy?
+
+Differential Privacy is a mathematical abstraction of disclosure risk which argues that the goal of 
+confidentiality should be to control the likelihood of distinguishing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
