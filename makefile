@@ -21,16 +21,19 @@ differential-privacy.html: differential-privacy.Rmd
 data: data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv
 
 data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv: data/rft-teaching-file
-	unzip $< -d data/rft-teaching-file
 
 data/rft-teaching-file: data/rft-teaching-file.zip
 	mkdir -p $@
+	unzip $< -d data/rft-teaching-file
 
 data/rft-teaching-file.zip:
 	wget http://www.ons.gov.uk/ons/rel/census/2011-census/2011-census-teaching-file/rft-teaching-file.zip -P data
 
 listen: 
 	ag -l | entr make slides
+
+clean:
+	rm -f notebooks/*.html
 
 .PHONY: docker
 docker:

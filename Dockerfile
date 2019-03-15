@@ -18,3 +18,9 @@ RUN Rscript -e "install.packages('reticulate')"
 
 RUN Rscript -e "install.packages('sdcMicro')"
 RUN Rscript -e "install.packages('brms')"
+RUN Rscript -e "install.packages('prettydoc')"
+
+RUN Rscript -e 'devtools::install_github("tidyverse/tidyverse")'
+RUN Rscript -e 'devtools::install_github("r-lib/rlang")'
+RUN Rscript -e 'devtools::install_github("tidyverse/tibble")'
+RUN Rscript -e 'devtools::install_github("tidyverse/dplyr")'

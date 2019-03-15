@@ -1,6 +1,10 @@
 ---
 title: "Differential Privacy in Practice"
-output: html_notebook
+author: "Caleb Moses"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
 ---
 
 # Introduction
@@ -12,8 +16,7 @@ We will import a microdataset and perform some differentially private queries. T
 ```{r message=FALSE, warning=TRUE}
 # Import libraries
 library(tidyverse)
-library(sdcMicro)
-library(brms)
+library(kableExtra)
 ```
 
 ```{r}
@@ -37,8 +40,8 @@ census <- raw_census %>%
       TRUE ~ warning("Not all Region values assigned")),
     `Residence Type` = case_when(
       `Residence Type` == 'C' ~ 'Resident in a communal establishment',
-      `Residence Type` == 'H' ~ 'Not resident in a communal establishment',
-      TRUE ~ warning("Not all Residence Type values assigned")),
+      `Residence Type` == 'H' ~ 'Not resident in a communal establishment'
+      ),
     `Family Composition` = case_when(
       `Family Composition` == 1 ~ 'Not in a family',
       `Family Composition` == 2 ~ 'Married/same-sex civil partnership couple family',
@@ -46,17 +49,17 @@ census <- raw_census %>%
       `Family Composition` == 4 ~ 'Lone parent family (male head)',
       `Family Composition` == 5 ~ 'Lone parent family (female head)',
       `Family Composition` == 6 ~ 'Other related family',
-      `Family Composition` == -9 ~ 'No code required (Resident of a communal establishment, students or schoolchildren living away during term-time, or a short-term resident)',
-      TRUE ~ warning("Not all Family Composition values assigned")),
+      `Family Composition` == -9 ~ 'No code required (Resident of a communal establishment, students or schoolchildren living away during term-time, or a short-term resident)'
+      ),
     `Population Base` = case_when(
       `Population Base` == 1 ~ 'Usual resident',
       `Population Base` == 2 ~ 'Student living away from home during  term-time',
-      `Population Base` == 3 ~ 'Short-term resident',
-      TRUE ~ warning('Not all `Population Base` values assigned')),
+      `Population Base` == 3 ~ 'Short-term resident'
+      ),
     Sex = case_when(
       Sex == 1 ~ 'Male',
-      Sex == 2 ~ 'Female',
-      TRUE ~ warning('Not all Sex values assigned')),
+      Sex == 2 ~ 'Female'
+      ),
     Age = case_when(
       Age == 1 ~ '0 to 15',
       Age == 2 ~ '16 to 24',
@@ -65,24 +68,24 @@ census <- raw_census %>%
       Age == 5 ~ '45 to 54',
       Age == 6 ~ '55 to 64',
       Age == 7 ~ '65 to 74',
-      Age == 8 ~ '75 and over',
-      TRUE ~ warning('Not all Age values assigned')),
+      Age == 8 ~ '75 and over'
+      ),
     `Marital Status` = case_when(
     `Marital Status` == 1 ~ 'Single (never married or never registered a same-sex civil partnership)',
     `Marital Status` == 2 ~ 'Married or in a registered same-sex civil partnership',
     `Marital Status` == 3 ~ 'Separated but still legally married or separated but still legally in a same-sex civil partnership',
     `Marital Status` == 4 ~ 'Divorced or formerly in a same-sex civil partnership which is now legally dissolved',
-    `Marital Status` == 5 ~ 'Widowed or surviving partner from a same-sex civil partnership',
-    TRUE ~ warning('Not all `Marital Status` values assigned')),
+    `Marital Status` == 5 ~ 'Widowed or surviving partner from a same-sex civil partnership'
+    ),
   Student = case_when(
     Student == 1 ~ 'Yes',
-    Student == 2 ~ 'No',
-    TRUE ~ warning('Not all Student values assigned')),
+    Student == 2 ~ 'No'
+    ),
   `Country Of Birth` = case_when(
     `Country of Birth` == 1 ~ 'UK',
     `Country of Birth` == 2 ~ 'Non UK',
-    `Country of Birth` == -9 ~ 'No Code required (Students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all `Country Of Birth` values assigned')),
+    `Country of Birth` == -9 ~ 'No Code required (Students or schoolchildren living away during term-time)'
+    ),
   Health = case_when(
     Health == 1 ~ 'Very good health',
     Health == 2 ~ 'Good health',
@@ -90,8 +93,8 @@ census <- raw_census %>%
     Health == 4 ~ 'Bad health',
     Health == 5 ~ 'Very bad health',
     Health == -9 ~ 'No code required (Students or schoolchildren living away during term-time)'
-    ,
-    TRUE ~ warning('Not all Health values assigned')),
+    
+    ),
   `Ethnic Group` = case_when(
     `Ethnic Group` == 1 ~ 'White',
     `Ethnic Group` == 2 ~ 'Mixed',
@@ -99,8 +102,8 @@ census <- raw_census %>%
     `Ethnic Group` == 4 ~ 'Black or Black British',
     `Ethnic Group` == 5 ~ 'Chinese or Other ethnic group',
     `Ethnic Group` == -9 ~ 'No code required (Not resident in England or Wales, students or schoolchildren living away during term-time)'
-    ,
-    TRUE ~ warning('Not all `Ethnic Group` values assigned')),
+    
+    ),
   Religion = case_when(
     Religion == 1 ~ 'No religion',
     Religion == 2 ~ 'Christian',
@@ -111,8 +114,8 @@ census <- raw_census %>%
     Religion == 7 ~ 'Sikh',
     Religion == 8 ~ 'Other religion',
     Religion == 9 ~ 'Not stated',
-    Religion == -9 ~ 'No code required (Not resident in England or Wales, students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all Religion values assigned')),
+    Religion == -9 ~ 'No code required (Not resident in England or Wales, students or schoolchildren living away during term-time)'
+    ),
   `Economic Activity` = case_when(
     `Economic Activity` == 1 ~ 'Economically active: Employee',
     `Economic Activity` == 2 ~ 'Economically active: Self-employed',
@@ -123,8 +126,8 @@ census <- raw_census %>%
     `Economic Activity` == 7 ~ 'Economically inactive: Looking after home or family',
     `Economic Activity` == 8 ~ 'Economically inactive: Long-term sick or disabled',
     `Economic Activity` == 9 ~ 'Economically inactive: Other',
-    `Economic Activity` == -9 ~ 'No code required (Aged under 16 or students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all `Economic Activity` values assigned')),
+    `Economic Activity` == -9 ~ 'No code required (Aged under 16 or students or schoolchildren living away during term-time)'
+    ),
   Occupation = case_when(
     Occupation == 1 ~ 'Managers, Directors and Senior Officials',
     Occupation == 2 ~ 'Professional Occupations',
@@ -135,8 +138,8 @@ census <- raw_census %>%
     Occupation == 7 ~ 'Sales and Customer Service Occupations',
     Occupation == 8 ~ 'Process, Plant and Machine Operatives',
     Occupation == 9 ~ 'Elementary Occupations',
-    Occupation == -9 ~ 'No code required (People aged under 16, people who have never worked and students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all Occupation values assigned')),
+    Occupation == -9 ~ 'No code required (People aged under 16, people who have never worked and students or schoolchildren living away during term-time)'
+    ),
   Industry = case_when(
     Industry == 1 ~ 'Agriculture, forestry and fishing',
     Industry == 2 ~ 'Mining and quarrying; Manufacturing; Electricity, gas, steam and air conditioning system; Water supply',
@@ -150,29 +153,44 @@ census <- raw_census %>%
     Industry == 10 ~ 'Education',
     Industry == 11 ~ 'Human health and social work activities',
     Industry == 12 ~ 'Other community, social and personal service activities; Private households employing domestic staff; Extra-territorial organisations and bodies',
-    Industry == -9 ~ 'No code required (People aged under 16, people who have never worked, and students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all Industry values assigned')),
+    Industry == -9 ~ 'No code required (People aged under 16, people who have never worked, and students or schoolchildren living away during term-time)'
+    ),
   `Hours Worked Per Week` = case_when(
     `Hours worked per week` == 1 ~ 'Part-time: 15 or less hours worked',
     `Hours worked per week` == 2 ~ 'Part-time: 16 to 30 hours worked',
     `Hours worked per week` == 3 ~ 'Full-time: 31 to 48 hours worked',
     `Hours worked per week` == 4 ~ 'Full-time: 49 or more hours worked',
-    `Hours worked per week` == -9 ~ 'No code required (People aged under 16, people not working, and students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all `Hours Worked Per Week` values assigned')),
+    `Hours worked per week` == -9 ~ 'No code required (People aged under 16, people not working, and students or schoolchildren living away during term-time)'
+    ),
   `Approximated Social Grade` = case_when(
     `Approximated Social Grade` == 1 ~ 'AB',
     `Approximated Social Grade` == 2 ~ 'C1',
     `Approximated Social Grade` == 3 ~ 'C2',
     `Approximated Social Grade` == 4 ~ 'DE',
-    `Approximated Social Grade` == -9 ~ 'No code required (People aged under 16, people resident in communal establishments, and students or schoolchildren living away during term-time)',
-    TRUE ~ warning('Not all `Approximated Social Grade` values assigned')),
+    `Approximated Social Grade` == -9 ~ 'No code required (People aged under 16, people resident in communal establishments, and students or schoolchildren living away during term-time)'
+    ),
   ) %>% 
   select(-`Hours worked per week`, -`Country of Birth`)
-head(census)
 ```
 
 ```{r}
-census
+census_nas <- map_lgl(census, ~any(is.na(.)))
+if (any(census_nas)) {
+  print(census_nas)
+  warning("Not all values assigned")
+}
+```
+
+```{r}
+census %>%
+  sample_n(30) %>%
+  knitr::kable() %>%
+  kable_styling(font_size = 15) %>%
+  scroll_box(width = "900px")
+```
+
+```{r}
+
 ```
 
 

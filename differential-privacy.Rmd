@@ -2,7 +2,9 @@
 title: "Intro to Differential Privacy"
 author: "Caleb Moses"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: ioslides_presentation
+output:
+  rmarkdown::html_document:
+    theme: lumen
 logo: images/dragonfly-logo-rgb.png
 css: dragonfly.css
 font-family: 'Helvetica'
