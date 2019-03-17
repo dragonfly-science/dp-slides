@@ -32,7 +32,7 @@ data/rft-teaching-file.zip:
 	wget http://www.ons.gov.uk/ons/rel/census/2011-census/2011-census-teaching-file/rft-teaching-file.zip -P data
 
 listen: 
-	$(RUN) ag -l | entr make
+	$(RUN) ag -l | entr make slides
 
 clean:
 	rm -f notebooks/*.html

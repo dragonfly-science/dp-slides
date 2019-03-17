@@ -2,9 +2,7 @@
 title: "Intro to Differential Privacy"
 author: "Caleb Moses"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output:
-  rmarkdown::html_document:
-    theme: lumen
+output: ioslides_presentation
 logo: images/dragonfly-logo-rgb.png
 css: dragonfly.css
 font-family: 'Helvetica'
@@ -19,20 +17,194 @@ pre code, pre, code {
 }
 </style>
 
+
+<link rel="stylesheet" type="text/css" href="http://cdn.datatables.net/1.10.5/css/jquery.dataTables.min.css">
+<script src="http://code.jquery.com/jquery-2.1.2.min.js"></script>
+<script src="http://cdn.datatables.net/1.10.5/js/jquery.dataTables.min.js"></script>
+
+<script type="text/javascript">
+         $(document).ready(function() {
+             $("table").DataTable();
+         } );
+</script>
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.align = 'center')
+```
+
+```{r}
+options(mc.cores = 15, DT.options = list(pageLength = 2, autoWidth = TRUE, scrollX = TRUE, scrollY = "350px", dom = 'tip'))
 ```
 
 ```{r}
 library(tidyverse)
 library(kableExtra)
-library(reticulate)
+library(sdcMicro)
+library(parallel)
+library(DT)
+library(rstan)
+
+theme_set(theme_minimal())
+```
+
+
+```{r}
+census <- read_csv('data/rft-teaching-file/2011 Census Microdata Teaching File.csv', skip = 1) %>% 
+  mutate(
+    Region = case_when(
+      Region == 'E12000001' ~ 'North East',
+      Region == 'E12000002' ~ 'North West',
+      Region == 'E12000003' ~ 'Yorkshire and the Humber',
+      Region == 'E12000004' ~ 'East Midlands',
+      Region == 'E12000005' ~ 'West Midlands',
+      Region == 'E12000006' ~ 'East of England',
+      Region == 'E12000007' ~ 'London',
+      Region == 'E12000008' ~ 'South East',
+      Region == 'E12000009' ~ 'South West',
+      Region == 'W92000004' ~ 'Wales'),
+    `Residence Type` = case_when(
+      `Residence Type` == 'C' ~ 'Resident in a communal establishment',
+      `Residence Type` == 'H' ~ 'Not resident in a communal establishment'
+      ),
+    `Family Composition` = case_when(
+      `Family Composition` == 1 ~ 'Not in a family',
+      `Family Composition` == 2 ~ 'Married/same-sex civil partnership couple family',
+      `Family Composition` == 3 ~ 'Cohabiting couple family',
+      `Family Composition` == 4 ~ 'Lone parent family (male head)',
+      `Family Composition` == 5 ~ 'Lone parent family (female head)',
+      `Family Composition` == 6 ~ 'Other related family',
+      `Family Composition` == -9 ~ 'No code required (Resident of a communal establishment, students or schoolchildren living away during term-time, or a short-term resident)'
+      ),
+    `Population Base` = case_when(
+      `Population Base` == 1 ~ 'Usual resident',
+      `Population Base` == 2 ~ 'Student living away from home during  term-time',
+      `Population Base` == 3 ~ 'Short-term resident'
+      ),
+    Sex = case_when(
+      Sex == 1 ~ 'Male',
+      Sex == 2 ~ 'Female'
+      ),
+    Age = case_when(
+      Age == 1 ~ '0 to 15',
+      Age == 2 ~ '16 to 24',
+      Age == 3 ~ '25 to 34',
+      Age == 4 ~ '35 to 44',
+      Age == 5 ~ '45 to 54',
+      Age == 6 ~ '55 to 64',
+      Age == 7 ~ '65 to 74',
+      Age == 8 ~ '75 and over'
+      ),
+    `Marital Status` = case_when(
+    `Marital Status` == 1 ~ 'Single (never married or never registered a same-sex civil partnership)',
+    `Marital Status` == 2 ~ 'Married or in a registered same-sex civil partnership',
+    `Marital Status` == 3 ~ 'Separated but still legally married or separated but still legally in a same-sex civil partnership',
+    `Marital Status` == 4 ~ 'Divorced or formerly in a same-sex civil partnership which is now legally dissolved',
+    `Marital Status` == 5 ~ 'Widowed or surviving partner from a same-sex civil partnership'
+    ),
+  Student = case_when(
+    Student == 1 ~ 'Yes',
+    Student == 2 ~ 'No'
+    ),
+  `Country Of Birth` = case_when(
+    `Country of Birth` == 1 ~ 'UK',
+    `Country of Birth` == 2 ~ 'Non UK',
+    `Country of Birth` == -9 ~ 'No Code required (Students or schoolchildren living away during term-time)'
+    ),
+  Health = case_when(
+    Health == 1 ~ 'Very good health',
+    Health == 2 ~ 'Good health',
+    Health == 3 ~ 'Fair health',
+    Health == 4 ~ 'Bad health',
+    Health == 5 ~ 'Very bad health',
+    Health == -9 ~ 'No code required (Students or schoolchildren living away during term-time)'
+    
+    ),
+  `Ethnic Group` = case_when(
+    `Ethnic Group` == 1 ~ 'White',
+    `Ethnic Group` == 2 ~ 'Mixed',
+    `Ethnic Group` == 3 ~ 'Asian and Asian British',
+    `Ethnic Group` == 4 ~ 'Black or Black British',
+    `Ethnic Group` == 5 ~ 'Chinese or Other ethnic group',
+    `Ethnic Group` == -9 ~ 'No code required (Not resident in England or Wales, students or schoolchildren living away during term-time)'
+    
+    ),
+  Religion = case_when(
+    Religion == 1 ~ 'No religion',
+    Religion == 2 ~ 'Christian',
+    Religion == 3 ~ 'Buddhist',
+    Religion == 4 ~ 'Hindu',
+    Religion == 5 ~ 'Jewish',
+    Religion == 6 ~ 'Muslim',
+    Religion == 7 ~ 'Sikh',
+    Religion == 8 ~ 'Other religion',
+    Religion == 9 ~ 'Not stated',
+    Religion == -9 ~ 'No code required (Not resident in England or Wales, students or schoolchildren living away during term-time)'
+    ),
+  `Economic Activity` = case_when(
+    `Economic Activity` == 1 ~ 'Economically active: Employee',
+    `Economic Activity` == 2 ~ 'Economically active: Self-employed',
+    `Economic Activity` == 3 ~ 'Economically active: Unemployed',
+    `Economic Activity` == 4 ~ 'Economically active: Full-time student',
+    `Economic Activity` == 5 ~ 'Economically inactive: Retired',
+    `Economic Activity` == 6 ~ 'Economically inactive: Student',
+    `Economic Activity` == 7 ~ 'Economically inactive: Looking after home or family',
+    `Economic Activity` == 8 ~ 'Economically inactive: Long-term sick or disabled',
+    `Economic Activity` == 9 ~ 'Economically inactive: Other',
+    `Economic Activity` == -9 ~ 'No code required (Aged under 16 or students or schoolchildren living away during term-time)'
+    ),
+  Occupation = case_when(
+    Occupation == 1 ~ 'Managers, Directors and Senior Officials',
+    Occupation == 2 ~ 'Professional Occupations',
+    Occupation == 3 ~ 'Associate Professional and Technical Occupations',
+    Occupation == 4 ~ 'Administrative and Secretarial Occupations',
+    Occupation == 5 ~ 'Skilled Trades Occupations',
+    Occupation == 6 ~ 'Caring, Leisure and Other Service Occupations',
+    Occupation == 7 ~ 'Sales and Customer Service Occupations',
+    Occupation == 8 ~ 'Process, Plant and Machine Operatives',
+    Occupation == 9 ~ 'Elementary Occupations',
+    Occupation == -9 ~ 'No code required (People aged under 16, people who have never worked and students or schoolchildren living away during term-time)'
+    ),
+  Industry = case_when(
+    Industry == 1 ~ 'Agriculture, forestry and fishing',
+    Industry == 2 ~ 'Mining and quarrying; Manufacturing; Electricity, gas, steam and air conditioning system; Water supply',
+    Industry == 3 ~ 'Construction',
+    Industry == 4 ~ 'Wholesale and retail trade; Repair of motor vehicles and motorcycles',
+    Industry == 5 ~ 'Accommodation and food service activities',
+    Industry == 6 ~ 'Transport and storage; Information and communication',
+    Industry == 7 ~ 'Financial and insurance activities; Intermediation',
+    Industry == 8 ~ 'Real estate activities; Professional, scientific and technical activities; Administrative and support service activities',
+    Industry == 9 ~ 'Public administration and defence; compulsory social security',
+    Industry == 10 ~ 'Education',
+    Industry == 11 ~ 'Human health and social work activities',
+    Industry == 12 ~ 'Other community, social and personal service activities; Private households employing domestic staff; Extra-territorial organisations and bodies',
+    Industry == -9 ~ 'No code required (People aged under 16, people who have never worked, and students or schoolchildren living away during term-time)'
+    ),
+  `Hours Worked Per Week` = case_when(
+    `Hours worked per week` == 1 ~ 'Part-time: 15 or less hours worked',
+    `Hours worked per week` == 2 ~ 'Part-time: 16 to 30 hours worked',
+    `Hours worked per week` == 3 ~ 'Full-time: 31 to 48 hours worked',
+    `Hours worked per week` == 4 ~ 'Full-time: 49 or more hours worked',
+    `Hours worked per week` == -9 ~ 'No code required (People aged under 16, people not working, and students or schoolchildren living away during term-time)'
+    ),
+  `Approximated Social Grade` = case_when(
+    `Approximated Social Grade` == 1 ~ 'AB',
+    `Approximated Social Grade` == 2 ~ 'C1',
+    `Approximated Social Grade` == 3 ~ 'C2',
+    `Approximated Social Grade` == 4 ~ 'DE',
+    `Approximated Social Grade` == -9 ~ 'No code required (People aged under 16, people resident in communal establishments, and students or schoolchildren living away during term-time)'
+    )
+  ) %>% 
+  select(-`Hours worked per week`, -`Country of Birth`) %>% 
+  mutate_all(as.factor)
 ```
 
 ## Overview
 
+- Arguments and Scenarios
 - What is Differential Privacy?
 - Examples of Differentially Private Mechanisms
+
+# Arguments and Scenarios
 
 ## Simple scenario
 
@@ -45,21 +217,551 @@ information to justify raising Alice's premiums
 
 Has Alice been harmed by allowing her data to be used by third parties
 
+## Simple scenario
+
+Alice's insurance premiums would have increased whether she provided her medical data
+for third parties or not, because the strength of the evidence did not hinge on her particular information
+being included in the study.
+
+Therefore Differential Privacy argues that Alice has not been harmed by providing her data.
+
 ## What is Differential Privacy?
 
-Differential Privacy is a mathematical abstraction of disclosure risk which argues that the goal of 
-confidentiality should be to control the likelihood of distinguishing
+Differential Privacy is a statistical framework which measures disclosure risk in terms of the
+probability that a released dataset can be meaningfully distinguished by a worst case attacker when one
+individual has been added or removed 
+
+## What is Differential Privacy?
+
+Definition: A randomized algorithm $\mathcal{M}$ with domain $\mathbb{N}^{|\mathcal{X}|}$ is $\epsilon$-Differentially Private if for all $\mathcal{S}\subseteq \mathrm{Range}(\mathcal{M})$ and for 
+all $x, y \in \mathbb{N}^{|\mathcal{X}|}$ such that $\|x-y\|_{1} \leq 1$:
+
+$$\mathrm{Pr}[\mathcal{M}(x) \in \mathcal{S}] \leq \mathrm{exp}(\varepsilon) \cdot \mathrm{Pr}[\mathcal{M}(y) \in \mathcal{S}]$$
+
+## Consequences
+
+The definition of Differential Privacy has a number of noteworthy corollaries
+
+- DP is immune to post-processing and linkage attacks
+- $\varepsilon$-DP mechanisms protect groups of size $k$ with $\varepsilon_{\mathrm{group}} = k\varepsilon$
+- DP has a bounded effect on utility over outcomes
+- Quantification of privacy loss including composition and group privacy
+
+## Privacy Loss
+
+We can also rearrange the definition of Differential Privacy to discover the following inequality:
+
+$$\mathrm{log}\left(\frac{\mathrm{Pr}[\mathcal{M}(x) \in \mathcal{S}]}{\mathrm{Pr}[\mathcal{M}(y) \in \mathcal{S}]}\right) \leq \varepsilon$$
+
+The quantity on the left is called the 'Privacy Loss', and DP is equivalent to saying the privacy loss is 
+bounded, for any $\mathcal{M}$, $x$ and $y$ where $x$ and $y$ differ by at most 1 individual.
+
+Privacy Loss is a useful concept, because it will enable us to consider tradeoffs between different 
+differentially private mechanisms
+
+# So how do you do it?
+
+## So how do you do it?
+
+For a given application, there can be multiple DP approaches. We can assess different methods to understand
+their properties, and also to provide arguments for how to choose $\varepsilon$
+
+## Randomized Response
+
+Originally conceived as a sample design for sensitive issues, such as criminal behaviour or sexuality.
+
+Imagine we want to ask a respondant if they have committed a crime. Rather than ask a yes/no question, we 
+can ask them to do the following:
+
+- Flip a biased coin
+- If tails, flip a second fair coin and report 'yes' if heads, or 'no' if tails
+- If heads, respond truthfully
+
+You can control the bias of the coin to increase, or decrease the proportion of true responses. More heads
+means more noise, more tails means more accuracy.
+
+## Randomized Response
+
+Randomized response generalises straightforwardly to any finite number of responses in the following way:
+
+- Flip a biased coin
+- If heads, respond truthfully
+- If tails, select a response uniformly at random
+
+## Randomized Response
+
+Because we know the bias of the coin, we can calculate an estimate of the proportion of
+desired responses.
+
+Define:
+
+- $p$ = the probability of heads
+- $S$ = the sample size
+- $N$ = the number of categories
+- $\hat{\mu}$  = the proportion of noised target responses
+- $\mu$  = the proportion of (estimated) true target responses
+
+$$\mu = \left(\hat{\mu} - \frac{1-p}{N}\right)\frac{1}{p}$$
+
+## Randomized Response
+
+Furthermore, the maximum privacy loss for Randomized Response is a function of $p$ and $N$, the number of categories.
+
+$$\mathcal{L}_{\mathcal{M}_{RR}} \leq \mathrm{log} \left(1 + \frac{Np}{1 - p}\right)$$
+
+## Randomized Response
+
+```{r}
+tibble(N = c(2, 5, 10, 50, 100)) %>% 
+  mutate(p = map(N, function(x) 1:99/100)) %>% 
+  unnest(p) %>% 
+  mutate(privacy_loss = 1 + N * p / (1 - p)) %>% 
+  ggplot(aes(x = p, y = privacy_loss, colour = factor(N))) +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ylab("Privacy Loss") +
+  guides(colour=guide_legend(title="Categories")) +
+  ggtitle("Level curves for privacy loss by p at different numbers of categories (N)")
+```
 
 
+## 2011 ONS Census Microdata
+
+```{r}
+census %>%
+  sample_n(30) %>%
+  datatable()
+```
+
+## Counting categories
+
+We can use randomised response to calculate the number of people matching any discrete variable.
+
+```{r, echo=TRUE}
+randomized_response <- function(x, p) {
+  
+  # Get noised response
+  res <- ifelse(
+    runif(length(x)) >= p,        # Flip coin
+    as.character(x),              # Respond truthfully
+    sample(levels(x), length(x),  # Choose a category randomly
+           replace = TRUE)  
+    )
+  
+  return(factor(res, levels = levels(x)))
+  
+}
+```
+
+## Counting Regions
+
+```{r}
+p = 0.5
+
+region_counts <- census %>% 
+  group_by(Region) %>% 
+  summarise(Count = n())
+
+noised_region_counts <- census %>%
+  mutate(Region = randomized_response(Region, p)) %>%
+  group_by(Region) %>%
+  summarise(`Noised count` = n()) %>%
+  left_join(region_counts, by = 'Region') %>%
+  mutate(`Estimated Count` = (`Noised count` / sum(`Noised count`) - p / nlevels(Region)) * sum(`Noised count`) / (1 - p),
+         `Relative Error` = (Count - `Estimated Count`) / Count)
+  
+noised_region_counts %>% 
+  datatable(options=list(pageLength = 10)) %>%
+  formatPercentage('Relative Error', 2)
+```
+
+## Counting Regions
+
+```{r}
+privacy_loss <- function(x, p) {
+  log(1 + nlevels(x) * (1 - p) / p)
+}
+```
+
+```{r}
+calculate_noised_counts <- function(df, x, p) {
+  col <- df[, x][[1]]
+  
+  var_counts <- df %>% 
+    group_by_at(x) %>% 
+    summarise(Count = n())
+  
+  df %>%
+  mutate_at(x, function(x) randomized_response(x, p)) %>%
+  group_by_at(x) %>%
+  summarise(`Noised count` = n()) %>%
+  left_join(var_counts, by = x) %>%
+  mutate(`Estimated Count` = (`Noised count` / sum(Count) - p / nlevels(col)) * sum(Count) / (1 - p)) %>% 
+  select(-`Noised count`)
+}
+```
+
+```{r}
+p = 0.5
+numsims = 100
+column = 'Region'
+
+cl <- makeCluster(getOption("cl.cores", 2), type = 'FORK')
+noise_count_sims <- parLapply(cl, 1:numsims, function(x) census %>% 
+      calculate_noised_counts(column, p) %>% 
+      mutate(sim = x)) %>% 
+  bind_rows()
+stopCluster(cl)
+
+noise_count_sims %>% 
+  group_by_at(column) %>% 
+  summarise(Count = median(Count),
+            `Estimated Count (5%)` = as.numeric(quantile(`Estimated Count`, 0.05)),
+            `Estimated Count (median)` = median(`Estimated Count`),
+            `Estimated Count (95%)` = as.numeric(quantile(`Estimated Count`, 0.95))) %>% 
+  gather(Count, `Estimated Count (median)`, key = 'count', value = 'value') %>% 
+  mutate_at(c('Estimated Count (5%)', 'Estimated Count (95%)'), funs(ifelse(count == "Count", NA, .))) %>% 
+  mutate_at(column, funs(str_wrap(., width = 20))) %>% 
+  ggplot(aes(x = reorder(.[,column][[1]], value), y = value, fill = count)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  geom_errorbar(aes(ymin=`Estimated Count (5%)`, ymax=`Estimated Count (95%)`), width=.2, position=position_dodge(.9))  +
+  ylab(column) +
+  xlab("Count") +
+  coord_flip() +
+
+  ggtitle(sprintf("Noised and unnoised counts by %s with 95%% percentile\nfrom ONS 2011 census 1%% sample (p = %s, privacy loss = %s)", column, prettyNum(p, digits = 2), prettyNum(privacy_loss(census[, column][[1]], p), digits = 2)))
+```
+
+## Counting Regions
+
+```{r}
+p = 0.95
+numsims = 100
+column = 'Region'
+
+cl <- makeCluster(getOption("cl.cores", 2), type = 'FORK')
+noise_count_sims <- parLapply(cl, 1:numsims, function(x) census %>% 
+      calculate_noised_counts(column, p) %>% 
+      mutate(sim = x)) %>% 
+  bind_rows()
+stopCluster(cl)
+
+noise_count_sims %>% 
+  group_by_at(column) %>% 
+  summarise(Count = median(Count),
+            `Estimated Count (5%)` = as.numeric(quantile(`Estimated Count`, 0.05)),
+            `Estimated Count (median)` = median(`Estimated Count`),
+            `Estimated Count (95%)` = as.numeric(quantile(`Estimated Count`, 0.95))) %>% 
+  gather(Count, `Estimated Count (median)`, key = 'count', value = 'value') %>% 
+  mutate_at(c('Estimated Count (5%)', 'Estimated Count (95%)'), funs(ifelse(count == "Count", NA, .))) %>% 
+  mutate_at(column, funs(str_wrap(., width = 20))) %>% 
+  ggplot(aes(x = reorder(.[,column][[1]], value), y = value, fill = count)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  geom_errorbar(aes(ymin=`Estimated Count (5%)`, ymax=`Estimated Count (95%)`), width=.2, position=position_dodge(.9))  +
+  ylab(column) +
+  xlab("Count") +
+  coord_flip() +
+
+  ggtitle(sprintf("Noised and unnoised counts by %s with 95%% percentile\nfrom ONS 2011 census 1%% sample (p = %s, privacy loss = %s)", column, prettyNum(p, digits = 2), prettyNum(privacy_loss(census[, column][[1]], p), digits = 2)))
+```
+
+## Counting Regions
+
+```{r}
+p = 0.99
+numsims = 100
+column = 'Region'
+
+cl <- makeCluster(getOption("cl.cores", 2), type = 'FORK')
+noise_count_sims <- parLapply(cl, 1:numsims, function(x) census %>% 
+      calculate_noised_counts(column, p) %>% 
+      mutate(sim = x)) %>% 
+  bind_rows()
+stopCluster(cl)
+
+noise_count_sims %>% 
+  group_by_at(column) %>% 
+  summarise(Count = median(Count),
+            `Estimated Count (5%)` = as.numeric(quantile(`Estimated Count`, 0.05)),
+            `Estimated Count (median)` = median(`Estimated Count`),
+            `Estimated Count (95%)` = as.numeric(quantile(`Estimated Count`, 0.95))) %>% 
+  gather(Count, `Estimated Count (median)`, key = 'count', value = 'value') %>% 
+  mutate_at(c('Estimated Count (5%)', 'Estimated Count (95%)'), funs(ifelse(count == "Count", NA, .))) %>% 
+  mutate_at(column, funs(str_wrap(., width = 20))) %>% 
+  ggplot(aes(x = reorder(.[,column][[1]], value), y = value, fill = count)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  geom_errorbar(aes(ymin=`Estimated Count (5%)`, ymax=`Estimated Count (95%)`), width=.2, position=position_dodge(.9))  +
+  ylab(column) +
+  xlab("Count") +
+  coord_flip() +
+
+  ggtitle(sprintf("Noised and unnoised counts by %s with 95%% percentile\nfrom ONS 2011 census 1%% sample (p = %s, privacy loss = %s)", column, prettyNum(p, digits = 2), prettyNum(privacy_loss(census[, column][[1]], p), digits = 2)))
+```
+
+## Privacy Loss vs Error
+
+```{r}
+p = 0.1
+numsims = 100
+column = 'Region'
+
+noise_count_sims_filepath <- "data/noise_count_sims.rds"
+if (file.exists(noise_count_sims_filepath)) {
+  noise_count_sims <- read_rds(noise_count_sims_filepath)
+} else {
+  cl <- makeCluster(getOption("mc.cores", 2), type = 'FORK')
+  noise_count_sims <- map(1:19 / 20, function (p) {
+    parLapply(cl, 1:numsims, function(x) census %>% 
+        calculate_noised_counts(column, p) %>% 
+        mutate(sim = x, p = p)) %>% 
+    bind_rows()}) %>% 
+    bind_rows()
+  
+  write_rds(noise_count_sims, "data/noise_count_sims.rds")
+    
+  stopCluster(cl)
+}
+```
+
+```{r fig.height=5, fig.width=8}
+noise_count_sims_plot_data <- noise_count_sims %>% 
+  group_by_at(c(column, 'p')) %>% 
+  summarise(Count = median(Count),
+            `Estimated Count (median)` = median(`Estimated Count`),
+            `Standard Deviation` = sd(`Estimated Count`),
+            `95% CI Width` = abs(as.numeric(quantile(`Estimated Count`, 0.95)) - as.numeric(quantile(`Estimated Count`, 0.05))),
+            `95% CI Percentage Width` = abs(as.numeric(quantile(`Estimated Count`, 0.95)) - as.numeric(quantile(`Estimated Count`, 0.05))) / `Count`,
+            `Coefficient of Variation` = `Standard Deviation` / mean(`Estimated Count`)
+            ) %>% 
+  ungroup() %>% 
+  mutate(`Privacy Loss` = map_dbl(p, function(x) privacy_loss(census[,column][[1]], x))) %>% 
+  gather(`Standard Deviation`:`Coefficient of Variation`, key = 'metric', value = 'value')
+
+noise_count_sims_plot_data %>% 
+  ggplot(aes(x = value, y = `Privacy Loss`, colour = p)) +
+  facet_wrap(~metric, scales = 'free_x') +
+  scale_color_distiller(palette = "Spectral", direction = 1) +
+  geom_point() +
+  ylab("Privacy Loss") +
+  xlab("Metric")
+```
+
+## Privacy Loss vs Error
+
+```{r fig.height=5, fig.width=8}
+noise_count_sims_plot_data %>% 
+  ggplot(aes(x = value, y = `Privacy Loss`, colour = p)) +
+  facet_wrap(~metric, scales = 'free_x') +
+  scale_color_distiller(palette = "Spectral", direction = 1) +
+  geom_point() +
+  scale_y_log10() +
+  scale_x_log10() +
+  ylab("Privacy Loss") +
+  xlab("Metric")
+```
+
+## The Laplace Mechanism
+
+Another well known mechanism for releasing Differentially Private counts, is called the _laplace mechanism_.
+
+$$\mathcal{M}_L (x, f(\cdot), \varepsilon) = f(x) + (Y_1, ..., Y_k)$$
+
+where $Y_i$ are i.i.d. random variables drawn from $\mathrm{Lap}\left(\frac{1}{\varepsilon}\right)$
+
+```{r, fig.width=5, fig.height=3}
+# Random number generation 
+rlap <- function(n, mu = 0, sigma = 1){
+  u <- runif(n)
+  rgen <- ifelse(u < 0.5, mu + sigma * log(2 * u), mu - sigma * log( 2 *(1 - u)))
+  return(rgen)
+}
+
+dlap <- function(x, mu = 0, b = 1) {
+  exp(-abs(x - mu) / b)
+}
+
+tibble(eps = c(0.3, 0.5, 1, 2)) %>% 
+  mutate(x = map(eps, function(x) -500:500/100)) %>% 
+  unnest(x) %>% 
+  mutate(y = eps / 2 * dlap(x, 0, 1 / eps),
+         eps = factor(eps)) %>% 
+  ggplot(aes(x = x, y = y, colour = eps)) +
+  geom_line() +
+  ggtitle("Laplace Density Function") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
 
+## The Laplace Mechanism
 
+```{r}
+cl <- makeCluster(getOption("mc.cores", 2), type = 'FORK')
 
+region_count_sims <- map(1:19 / 20, function(prob) {
+  parLapply(cl, 1:numsims, function (x) {
+    census %>% 
+    group_by(Region) %>% 
+    summarise(Count = n(), 
+              `Privacy Loss` = privacy_loss(census$Region, prob),
+              `Noised Count` = n() + rlap(length(Count), mu = 1 / `Privacy Loss`),
+              sim = x) %>% 
+      ungroup()}) %>% 
+  bind_rows() %>% 
+  mutate(p = prob)}) %>% 
+  bind_rows()
 
+stopCluster(cl)
+```
 
+```{r}
+region_count_sims %>% 
+  group_by(Region, `Privacy Loss`, p) %>% 
+  summarise(Count = median(Count),
+            `Noised Count (median)` = median(`Noised Count`),
+            `Standard Deviation` = sd(`Noised Count`),
+            `95% CI Width` = abs(as.numeric(quantile(`Noised Count`, 0.95)) - as.numeric(quantile(`Noised Count`, 0.05))),
+            `95% CI Percentage Width` = abs(as.numeric(quantile(`Noised Count`, 0.95)) - as.numeric(quantile(`Noised Count`, 0.05))) / `Count`,
+            `Coefficient of Variation` = `Standard Deviation` / mean(`Noised Count`)) %>% 
+  gather(`Standard Deviation`:`Coefficient of Variation`, key = 'metric', value = 'value') %>% 
+  ungroup() %>% 
+  mutate(Region = str_wrap(Region, width = 20)) %>% 
+  ggplot(aes(x = value, y = `Privacy Loss`, colour = p)) +
+  facet_wrap(~metric, scales = 'free_x') +
+  scale_color_distiller(palette = "Spectral", direction = 1) +
+  geom_point() +
+  ylab("Privacy Loss") +
+  xlab("Metric")
+```
 
+## The Laplace Mechanism
 
+Turns out the Laplace Mechanism is 3-4 orders of magnitude more accurate than Randomised Response.
 
+The Laplace Mechanism can also be used for confidentialising value magnitudes. 
+
+In this case, you choose noise drawn from $\mathrm{Lap}\left(\frac{\Delta f}{\varepsilon}\right)$.
+
+Where $\Delta f$ is an upper bound on the magnitude by which a single individual's data can change the 
+function $f$ in the worst case.
+
+## Sums and Totals
+
+Sums and totals can be released using the laplace mechanism. Here we consider an income dataset with the
+following distribution:
+
+```{r}
+testdata %>% 
+  ggplot(aes(x = income)) +
+  geom_histogram() +
+  xlab("Income") +
+  ylab("Count")
+```
+
+## Relative error vs Privacy loss
+
+```{r}
+numsims = 1000
+cl <- makeCluster(getOption("mc.cores", 2), type = 'FORK')
+
+income_sims <- parLapply(cl, 1:numsims, function(sim) {
+    map(1:10 / 2, function(eps) {
+      testdata %>% 
+      mutate(income_noised = income + rlap(income, 0, abs(max(income) - min(income)) / eps)) %>%
+      select(income, income_noised) %>% 
+      summarise(total_income = sum(income),
+                total_income_noised = sum(income_noised),
+                relative_error = abs(total_income - total_income_noised) / total_income) %>% 
+        mutate(privacy_loss = eps)}) %>% 
+      bind_rows() %>% 
+      mutate(sim = sim)}) %>% 
+  bind_rows()
+
+stopCluster(cl)
+```
+
+```{r}
+income_sims %>%
+  group_by(privacy_loss) %>%
+  summarise(total_income = mean(total_income),
+            total_income_noised = mean(total_income_noised),
+            percentile_05 = as.numeric(quantile(relative_error, 0.05)),
+            percentile_95 = as.numeric(quantile(relative_error, 0.95)),
+            relative_error = median(relative_error)) %>%
+  ggplot(aes(x = privacy_loss, y = relative_error)) +
+  geom_point() +
+  geom_pointrange(aes(ymin = percentile_05, ymax = percentile_95)) +
+  coord_flip() +
+  xlab("Privacy Loss") +
+  ylab("Relative Error")
+```
+
+## Income totals
+
+Here we consider a more practical scenario, where income is lognormal distributed. 
+
+This is usually the case, but has tricky confidentiality implications because lognormal 
+distributions occasionally take large values.
+
+```{r, fig.height=3}
+# Replace income with lognormal distribution
+log_mu = 10.8
+log_sigma = 5
+testdata2 <- testdata %>% 
+  mutate(income = rlnorm(nrow(.), log_mu, log_sigma))
+
+# Plot histogram
+testdata2 %>% 
+  ggplot(aes(x = income)) +
+  geom_histogram() +
+  scale_x_log10() +
+  ggtitle(sprintf("Histogram of log-income (mean=$%s, log(sd)=%s)", 
+                  prettyNum(round(exp(log_mu), -3), big.mark = ","), 
+                  round(log_sigma, 2))) +
+  xlab("Income ($)") +
+  ylab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Relative error vs Privacy loss
+
+```{r}
+numsims = 1000
+cl <- makeCluster(getOption("mc.cores", 2), type = 'FORK')
+
+income_sims <- parLapply(cl, 1:numsims, function(sim) {
+    map(1:10 / 2, function(eps) {
+      testdata2 %>% 
+      mutate(income_noised = income + rlap(income, 0, abs(max(income) - min(income)) / eps)) %>%
+      select(income, income_noised) %>% 
+      summarise(total_income = sum(income),
+                total_income_noised = sum(income_noised),
+                relative_error = abs(total_income - total_income_noised) / total_income) %>% 
+        mutate(privacy_loss = eps)}) %>% 
+      bind_rows() %>% 
+      mutate(sim = sim)}) %>% 
+  bind_rows()
+
+stopCluster(cl)
+```
+
+This time the relative error blows up unfortunately
+
+```{r}
+income_sims %>%
+  group_by(privacy_loss) %>%
+  summarise(total_income = mean(total_income),
+            total_income_noised = mean(total_income_noised),
+            percentile_05 = as.numeric(quantile(relative_error, 0.05)),
+            percentile_95 = as.numeric(quantile(relative_error, 0.95)),
+            relative_error = median(relative_error)) %>%
+  ggplot(aes(x = privacy_loss, y = relative_error)) +
+  geom_point() +
+  geom_pointrange(aes(ymin = percentile_05, ymax = percentile_95)) +
+  coord_flip() +
+  xlab("Privacy Loss") +
+  ylab("Relative Error")
+```
 
 
 

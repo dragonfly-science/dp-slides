@@ -248,11 +248,12 @@ noised_region_counts <- census %>%
 noised_region_counts %>% 
   gather(noised_count:count, key = 'noise', value = 'count') %>% 
   mutate(noise = if_else(noise == "noised_count", "noise", "no noise")) %>% 
-  ggplot(aes(x = reorder(Region, count), y = count, fill = noise)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
+  ggplot(aes(x = reorder(Region, count), y = count, colour = noise, size = 2, alpha = 0.5)) +
+  geom_point(stat = 'identity') +
   coord_flip() +
   xlab('Frequency') +
   ylab('Region') +
+  guides(size = FALSE) +
   theme_minimal()
 ```
 

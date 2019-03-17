@@ -38,6 +38,10 @@ table thead th {
   font-size:10pt;
 }
 
+table tbody td {
+  font-size:10pt;
+}
+
 q, blockquote {
     quotes: none;
     font: 22px normal helvetica, sans-serif;
