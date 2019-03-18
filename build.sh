@@ -3,7 +3,7 @@ set -ex
 
 export RUN=
 
-make slides
+make all
 
 cp differential-privacy.html /publish/index.html
 cp notebooks/*.html /output
