@@ -17,7 +17,7 @@ notebooks: $(NOTEBOOKS:.Rmd=.html)
 $(NOTEBOOKS:.Rmd=.html): $(NOTEBOOKS) data/rft-teaching-file.zip data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv
 	$(RUN) Rscript -e 'rmarkdown::render("$<")'
 
-differential-privacy.html: differential-privacy.Rmd
+differential-privacy.html: differential-privacy.Rmd data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv
 	$(RUN) Rscript -e 'rmarkdown::render("$<")'
 
 data: data/rft-teaching-file/2011\ Census\ Microdata\ Teaching\ File.csv
