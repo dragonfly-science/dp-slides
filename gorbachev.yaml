@@ -1,2 +1,2 @@
-docker: docker.dragonfly.co.nz/dp-slides:099f122
+docker: docker.dragonfly.co.nz/dp-slides:806845f
 publish: dp-slides
