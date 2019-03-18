@@ -1,6 +1,7 @@
 #! /bin/bash
-
 set -ex
+
+export RUN=
 
 make slides
 
