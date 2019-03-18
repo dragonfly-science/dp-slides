@@ -29,11 +29,11 @@ pre code, pre, code {
 </script>
 
 ```{r setup, include=FALSE}
+# Set knitr options
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.align = 'center')
-```
 
-```{r}
-options(mc.cores = 15, DT.options = list(pageLength = 2, autoWidth = TRUE, scrollX = TRUE, scrollY = "350px", dom = 'tip'))
+# Set options
+options(mc.cores = parallel::detectCores() - 1, DT.options = list(pageLength = 2, autoWidth = TRUE, scrollX = TRUE, scrollY = "350px", dom = 'tip'))
 ```
 
 ```{r}
@@ -46,7 +46,6 @@ library(rstan)
 
 theme_set(theme_minimal())
 ```
-
 
 ```{r}
 census <- read_csv('data/rft-teaching-file/2011 Census Microdata Teaching File.csv', skip = 1) %>% 
@@ -404,72 +403,6 @@ calculate_noised_counts <- function(df, x, p) {
 
 ```{r}
 p = 0.5
-numsims = 100
-column = 'Region'
-
-cl <- makeCluster(getOption("cl.cores", 2), type = 'FORK')
-noise_count_sims <- parLapply(cl, 1:numsims, function(x) census %>% 
-      calculate_noised_counts(column, p) %>% 
-      mutate(sim = x)) %>% 
-  bind_rows()
-stopCluster(cl)
-
-noise_count_sims %>% 
-  group_by_at(column) %>% 
-  summarise(Count = median(Count),
-            `Estimated Count (5%)` = as.numeric(quantile(`Estimated Count`, 0.05)),
-            `Estimated Count (median)` = median(`Estimated Count`),
-            `Estimated Count (95%)` = as.numeric(quantile(`Estimated Count`, 0.95))) %>% 
-  gather(Count, `Estimated Count (median)`, key = 'count', value = 'value') %>% 
-  mutate_at(c('Estimated Count (5%)', 'Estimated Count (95%)'), funs(ifelse(count == "Count", NA, .))) %>% 
-  mutate_at(column, funs(str_wrap(., width = 20))) %>% 
-  ggplot(aes(x = reorder(.[,column][[1]], value), y = value, fill = count)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
-  geom_errorbar(aes(ymin=`Estimated Count (5%)`, ymax=`Estimated Count (95%)`), width=.2, position=position_dodge(.9))  +
-  ylab(column) +
-  xlab("Count") +
-  coord_flip() +
-
-  ggtitle(sprintf("Noised and unnoised counts by %s with 95%% percentile\nfrom ONS 2011 census 1%% sample (p = %s, privacy loss = %s)", column, prettyNum(p, digits = 2), prettyNum(privacy_loss(census[, column][[1]], p), digits = 2)))
-```
-
-## Counting Regions
-
-```{r}
-p = 0.95
-numsims = 100
-column = 'Region'
-
-cl <- makeCluster(getOption("cl.cores", 2), type = 'FORK')
-noise_count_sims <- parLapply(cl, 1:numsims, function(x) census %>% 
-      calculate_noised_counts(column, p) %>% 
-      mutate(sim = x)) %>% 
-  bind_rows()
-stopCluster(cl)
-
-noise_count_sims %>% 
-  group_by_at(column) %>% 
-  summarise(Count = median(Count),
-            `Estimated Count (5%)` = as.numeric(quantile(`Estimated Count`, 0.05)),
-            `Estimated Count (median)` = median(`Estimated Count`),
-            `Estimated Count (95%)` = as.numeric(quantile(`Estimated Count`, 0.95))) %>% 
-  gather(Count, `Estimated Count (median)`, key = 'count', value = 'value') %>% 
-  mutate_at(c('Estimated Count (5%)', 'Estimated Count (95%)'), funs(ifelse(count == "Count", NA, .))) %>% 
-  mutate_at(column, funs(str_wrap(., width = 20))) %>% 
-  ggplot(aes(x = reorder(.[,column][[1]], value), y = value, fill = count)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
-  geom_errorbar(aes(ymin=`Estimated Count (5%)`, ymax=`Estimated Count (95%)`), width=.2, position=position_dodge(.9))  +
-  ylab(column) +
-  xlab("Count") +
-  coord_flip() +
-
-  ggtitle(sprintf("Noised and unnoised counts by %s with 95%% percentile\nfrom ONS 2011 census 1%% sample (p = %s, privacy loss = %s)", column, prettyNum(p, digits = 2), prettyNum(privacy_loss(census[, column][[1]], p), digits = 2)))
-```
-
-## Counting Regions
-
-```{r}
-p = 0.99
 numsims = 100
 column = 'Region'
 
